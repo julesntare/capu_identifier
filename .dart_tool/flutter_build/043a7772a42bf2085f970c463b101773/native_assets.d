@@ -1,0 +1,1 @@
+ D:\\test_projects\\capu_identifier\\.dart_tool\\flutter_build\\043a7772a42bf2085f970c463b101773\\native_assets.yaml: 
