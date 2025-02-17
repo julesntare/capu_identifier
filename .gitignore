@@ -42,3 +42,10 @@ google-services.json
 .pub/
 /build/
 /captures/
+
+# add firebase files
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+lib/firebase_options.dart
+firebase.json
