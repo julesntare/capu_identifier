@@ -1,3 +1,3 @@
 class AppConstants {
-  static const String appName = 'CaPu Identifier';
+  static const String appName = 'CaPi';
 }

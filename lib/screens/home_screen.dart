@@ -1,12 +1,13 @@
-import 'package:capu_identifier/utils/constants.dart';
+import 'package:capi/utils/constants.dart';
 import 'package:flutter/material.dart';
-import 'package:capu_identifier/services/contact_service.dart';
-import 'package:capu_identifier/services/notification_service.dart';
-import 'package:capu_identifier/services/audio_service.dart';
-import 'package:capu_identifier/services/call_service.dart';
-import 'package:capu_identifier/models/call_history_model.dart';
-import 'package:capu_identifier/screens/history_screen.dart';
+import 'package:capi/services/contact_service.dart';
+import 'package:capi/services/notification_service.dart';
+import 'package:capi/services/audio_service.dart';
+import 'package:capi/services/call_service.dart';
+import 'package:capi/models/call_history_model.dart';
+import 'package:capi/screens/history_screen.dart';
 import 'package:flutter_contacts/contact.dart';
+import 'package:capi/services/firestore_service.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -18,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final NotificationService _notificationService = NotificationService();
   final AudioService _audioService = AudioService();
   final CallService _callService = CallService();
+  final FirestoreService _firestoreService = FirestoreService();
 
   List<Contact> _contacts = [];
   List<Contact> _filteredContacts = [];
@@ -76,12 +78,6 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
 
-    if (contact.phones.isEmpty) {
-      _notificationService.showNotification('No Phone Number',
-          'Contact ${contact.displayName} has no phone number.');
-      return;
-    }
-
     if (option == 'text') {
       final message = await showDialog<String>(
         context: context,
@@ -104,16 +100,15 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (message != null && message.isNotEmpty) {
-        _callHistory.add(CallHistory(
+        await _firestoreService.saveCallHistory(
           phoneNumber: contact.phones.first.number,
           type: 'text',
           message: message,
           timestamp: DateTime.now(),
-        ));
+        );
         _notificationService.showNotification(
             'Message Sent', 'Message sent to ${contact.displayName}');
         _callService.launchCall(contact.phones.first.number);
-        setState(() {}); // Refresh the UI
       }
     } else if (option == 'voice') {
       await _audioService.startRecording();
@@ -128,6 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   icon: Icon(_isRecording ? Icons.stop : Icons.mic),
                   onPressed: () async {
+                    print(_audioService.audioPath);
                     if (_isRecording) {
                       await _audioService.stopRecording();
                       Navigator.pop(context);
@@ -148,27 +144,25 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (_audioService.audioPath != null) {
-        _callHistory.add(CallHistory(
+        await _firestoreService.saveCallHistory(
           phoneNumber: contact.phones.first.number,
           type: 'voice_note',
           voiceNotePath: _audioService.audioPath,
           timestamp: DateTime.now(),
-        ));
+        );
         _notificationService.showNotification(
             'Voice Note Sent', 'Voice note sent to ${contact.displayName}');
         _callService.launchCall(contact.phones.first.number);
-        setState(() {}); // Refresh the UI
       }
     } else if (option == 'call') {
-      _callHistory.add(CallHistory(
+      await _firestoreService.saveCallHistory(
         phoneNumber: contact.phones.first.number,
         type: 'call',
         timestamp: DateTime.now(),
-      ));
+      );
       _notificationService.showNotification(
           'Call Initiated', 'Calling ${contact.displayName}');
       _callService.launchCall(contact.phones.first.number);
-      setState(() {}); // Refresh the UI
     }
   }
 

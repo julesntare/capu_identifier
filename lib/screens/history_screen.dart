@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:capu_identifier/models/call_history_model.dart';
+import 'package:capi/models/call_history_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:capi/services/firestore_service.dart';
 
 class HistoryScreen extends StatefulWidget {
   final List<CallHistory> callHistory;
@@ -11,24 +13,23 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  List<CallHistory> _filteredHistory = [];
+  final FirestoreService _firestoreService = FirestoreService();
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _filteredHistory = widget.callHistory;
     _searchController.addListener(_searchHistory);
   }
 
   void _searchHistory() {
     final query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredHistory = widget.callHistory
-          .where((history) =>
-              history.phoneNumber.toLowerCase().contains(query) ||
-              history.type.toLowerCase().contains(query))
-          .toList();
+      widget.callHistory.forEach((history) {
+        final isMatch = history.phoneNumber.toLowerCase().contains(query) ||
+            history.type.toLowerCase().contains(query);
+        history.isFlagged = isMatch;
+      });
     });
   }
 
@@ -82,37 +83,49 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: _filteredHistory.length,
-              itemBuilder: (context, index) {
-                final history = _filteredHistory[index];
-                return ListTile(
-                  title: Text(
-                    '${history.phoneNumber} - ${history.displayName ?? 'Unknown'}',
-                    style: TextStyle(
-                      color: history.isFlagged ? Colors.red : Colors.black,
-                    ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Type: ${history.type} - ${history.timestamp}'),
-                      if (history.message != null)
-                        Text('Message: ${history.message}'),
-                      if (history.voiceNotePath != null)
-                        Text('Voice Note: Available'),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (history.isFlagged)
-                        IconButton(
-                          icon: Icon(Icons.flag, color: Colors.red),
-                          onPressed: () => _unflagNumber(history.phoneNumber),
-                        ),
-                    ],
-                  ),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _firestoreService.getCallHistory(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                final callHistory = snapshot.data!.docs;
+                return ListView.builder(
+                  itemCount: callHistory.length,
+                  itemBuilder: (context, index) {
+                    final history = callHistory[index];
+                    final data = history.data() as Map<String, dynamic>;
+                    return ListTile(
+                      title: Text(data['phoneNumber']),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                              'Type: ${data['type']} - ${data['timestamp'].toDate()}'),
+                          if (data['message'] != null)
+                            Text('Message: ${data['message']}'),
+                          if (data['voiceNotePath'] != null)
+                            Text('Voice Note: Available'),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (data['isFlagged'])
+                            IconButton(
+                              icon: Icon(Icons.flag, color: Colors.red),
+                              onPressed: () async {
+                                await _firestoreService.updateFlaggedStatus(
+                                    history.id, false);
+                              },
+                            ),
+                        ],
+                      ),
+                    );
+                  },
                 );
               },
             ),

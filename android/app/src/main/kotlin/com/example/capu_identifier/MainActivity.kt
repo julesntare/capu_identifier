@@ -1,4 +1,4 @@
-package com.example.capu_identifier
+package com.example.capi
 
 import io.flutter.embedding.android.FlutterActivity
 
