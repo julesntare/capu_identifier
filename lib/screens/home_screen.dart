@@ -123,7 +123,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   icon: Icon(_isRecording ? Icons.stop : Icons.mic),
                   onPressed: () async {
-                    print(_audioService.audioPath);
                     if (_isRecording) {
                       await _audioService.stopRecording();
                       Navigator.pop(context);
@@ -252,14 +251,37 @@ class _HomeScreenState extends State<HomeScreen> {
                               : Colors.black,
                         ),
                         onPressed: () async {
-                          _callHistory.add(CallHistory(
-                            phoneNumber: contact.phones.first.number,
-                            type: 'call',
-                            timestamp: DateTime.now(),
-                            isFlagged: true,
-                          ));
-                          _notificationService.showNotification('Call Flagged',
-                              'Call from ${contact.displayName} has been flagged.');
+                          if (contact.phones.isNotEmpty &&
+                              _callHistory.any((history) =>
+                                  history.phoneNumber ==
+                                      contact.phones.first.number &&
+                                  history.isFlagged)) {
+                            _callHistory.removeWhere((history) =>
+                                history.phoneNumber ==
+                                    contact.phones.first.number &&
+                                history.isFlagged);
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Call from ${contact.displayName} has been unflagged.'),
+                              ),
+                            );
+                          } else {
+                            _callHistory.add(CallHistory(
+                              phoneNumber: contact.phones.first.number,
+                              type: 'call',
+                              timestamp: DateTime.now(),
+                              isFlagged: true,
+                            ));
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Call from ${contact.displayName} has been flagged.'),
+                              ),
+                            );
+                          }
                           setState(() {}); // Refresh the UI
                         },
                       ),
